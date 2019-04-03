@@ -102,3 +102,9 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# VS Code
+.vscode
+
+# h5 data dump
+*.h5
