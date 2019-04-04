@@ -7,10 +7,17 @@ import numpy as np
 import keras
 
 config = {}
-config['is_on_cheaha'] = False
-config['data_dir'] = '$USER_SCRATCH' if config['is_on_cheaha'] else 'data'
-config['brats_file'] = 'brats_data_64.h5'
+config['env'] = 'win'  # win/osx/cheaha
+if config['env'] == 'win':
+    config['data_dir'] = "C:\\Users\\kavel\\workspace\\3DUnetCNN"
+elif config['env'] == 'osx':
+    config['data_dir'] = 'data'
+elif config['env'] == 'cheaha':
+    config['data_dir'] = '$USER_SCRATCH'
+config['brats_file'] = 'brats_data.h5'
 config['model_file'] = 'model.hdf5'
+config['image_shape'] = (144, 144, 144)
+config['patch_shape'] = (64, 64, 64)
 config['train_percentage'] = 0.7
 config['batch_size'] = 2
 config['epoch'] = 100
@@ -27,9 +34,9 @@ partition['test'] = list(
 print("Data shape: ", img_data.root.data.shape)
 print("Truth shape: ", img_data.root.truth.shape)
 training_generator, training_steps = generator.get_generator(
-    img_data=img_data, idx_list=partition['train'], batch_size=config['batch_size'])
+    img_data=img_data, idx_list=partition['train'], batch_size=config['batch_size'],patch_shape=config['patch_shape'])
 validation_generator, validation_steps = generator.get_generator(
-    img_data=img_data, idx_list=partition['test'], batch_size=config['batch_size'])
+    img_data=img_data, idx_list=partition['test'], batch_size=config['batch_size'],patch_shape=config['patch_shape'])
 
 model = None
 if os.path.exists(config['model_file']):
