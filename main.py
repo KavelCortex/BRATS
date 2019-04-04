@@ -4,7 +4,7 @@ from unet.model import unet_model_3d, load_old_model
 from unet import generator
 import matplotlib.pyplot as plt
 import numpy as np
-import keras
+from tensorflow import keras
 
 config = {}
 config['env'] = 'win'  # win/osx/cheaha
