@@ -19,6 +19,9 @@ def batch_generator(img_data, idx_list,batch_size=2):
             X_batch.append(X)
             y_batch.append(y)
         if len(X_batch)==batch_size or (len(idx_list)==0 and len(X_batch)>0):
+            X_batch=np.asarray(X_batch)
+            y_batch=np.asarray(y_batch)
+            y_batch=get_multi_class_labels(y_batch)
             yield X_batch,y_batch
             X_batch=[]
             y_batch=[]
@@ -103,11 +106,14 @@ class SequenceGenerator(keras.utils.Sequence):
             X = np.empty((self.batch_size, self.n_channels, *patch_dim))
             y = np.empty((self.batch_size, self.n_classes, *patch_dim))
         for i, idx in enumerate(list_IDs_temp):
-            data, seg_mask_3ch = get_data_by_ID(
+            data, seg_mask = get_data_by_ID(self.img_data,
                 idx, patch_size=self.patch_size, patch_idxes=self.patch_idxes)
             X[i, ] = data
-            y[i, ] = seg_mask_3ch
-
+            y[i, ] = seg_mask
+        
+        X=np.asarray(X)
+        y=np.asarray(y)
+        y=get_multi_class_labels(y)
         return X, y
 
 
@@ -125,15 +131,23 @@ def get_data_by_ID(img_data,idx, patch_size=None, patch_idxes=None):
             patch_idx)  # (n_channels, patch_dim)
         seg_mask = patches.get_patch_from_3d_data(
             seg_mask, [patch_size, patch_size, patch_size],
-            patch_idx)  # (n_channels, patch_dim)
-
-    seg_mask_1 = np.zeros_like(seg_mask)
-    seg_mask_1[seg_mask.astype(int) == 1] = 1
-    seg_mask_2 = np.zeros_like(seg_mask)
-    seg_mask_2[seg_mask.astype(int) == 2] = 1
-    seg_mask_3 = np.zeros_like(seg_mask)
-    seg_mask_3[seg_mask.astype(int) == 4] = 1
-    seg_mask_3ch = np.concatenate([seg_mask_1, seg_mask_2, seg_mask_3],
-                                  axis=0).astype(int)
+            patch_idx)  # (1, patch_dim)
 
     return data, seg_mask
+
+def get_multi_class_labels(data, n_labels=3, labels=[1,2,4]):
+    """
+    Translates a label map into a set of binary labels.
+    :param data: numpy array containing the label map with shape: (n_samples, 1, ...).
+    :param n_labels: number of labels.
+    :param labels: integer values of the labels.
+    :return: binary numpy array of shape: (n_samples, n_labels, ...)
+    """
+    new_shape = [data.shape[0], n_labels] + list(data.shape[2:])
+    y = np.zeros(new_shape, np.int8)
+    for label_index in range(n_labels):
+        if labels is not None:
+            y[:, label_index][data[:, 0] == labels[label_index]] = 1
+        else:
+            y[:, label_index][data[:, 0] == (label_index + 1)] = 1
+    return y
