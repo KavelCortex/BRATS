@@ -5,26 +5,33 @@ import unet.utils.patches as patches
 import cv2
 
 
+def get_generator(img_data,idx_list,batch_size=2):
+    generator = batch_generator(img_data=img_data,idx_list=idx_list,batch_size=batch_size)
+    step_per_epoch=get_num_of_steps(n_samples=len(idx_list),batch_size=batch_size)
+    return generator,step_per_epoch
+
 def batch_generator(img_data, idx_list,batch_size=2):
     '''
     Standard batch generator with yield
     '''
-    random.shuffle(idx_list)
-    X_batch = []
-    y_batch = []
-    while len(idx_list)>0:
-        idx=idx_list.pop()
-        X,y=get_data_by_ID(img_data=img_data,idx=idx)
-        if np.any(y!=0):
-            X_batch.append(X)
-            y_batch.append(y)
-        if len(X_batch)==batch_size or (len(idx_list)==0 and len(X_batch)>0):
-            X_batch=np.asarray(X_batch)
-            y_batch=np.asarray(y_batch)
-            y_batch=get_multi_class_labels(y_batch)
-            yield X_batch,y_batch
-            X_batch=[]
-            y_batch=[]
+    while True:
+        idx_epoch=idx_list.copy()
+        random.shuffle(idx_epoch)
+        X_batch = []
+        y_batch = []
+        while len(idx_epoch)>0:
+            idx=idx_epoch.pop()
+            X,y=get_data_by_ID(img_data=img_data,idx=idx)
+            if np.any(y!=0):
+                X_batch.append(X)
+                y_batch.append(y)
+            if len(X_batch)==batch_size or (len(idx_epoch)==0 and len(X_batch)>0):
+                X_batch=np.asarray(X_batch)
+                y_batch=np.asarray(y_batch)
+                y_batch=get_multi_class_labels(y_batch)
+                yield X_batch,y_batch
+                X_batch=[]
+                y_batch=[]
 
 
 class SequenceGenerator(keras.utils.Sequence):
@@ -151,3 +158,11 @@ def get_multi_class_labels(data, n_labels=3, labels=[1,2,4]):
         else:
             y[:, label_index][data[:, 0] == (label_index + 1)] = 1
     return y
+
+def get_num_of_steps(n_samples,batch_size):
+    if n_samples<=batch_size:
+        return n_samples
+    elif np.remainder(n_samples,batch_size)==0:
+        return n_samples/batch_size
+    else:
+        return n_samples//batch_size+1
