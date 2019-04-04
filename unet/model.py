@@ -5,7 +5,7 @@ from keras.layers import Conv3D, MaxPooling3D, UpSampling3D, Activation, BatchNo
 from keras.optimizers import Adam
 from keras.models import load_model
 from unet.utils.metrics import (dice_coefficient, dice_coefficient_loss, dice_coef, dice_coef_loss,
-                            weighted_dice_coefficient_loss, weighted_dice_coefficient,get_label_dice_coefficient_function)
+                                weighted_dice_coefficient_loss, weighted_dice_coefficient, get_label_dice_coefficient_function)
 K.set_image_data_format("channels_first")
 
 try:
@@ -151,6 +151,3 @@ def load_old_model(model_file):
                                           "'pip install git+https://www.github.com/keras-team/keras-contrib.git'")
         else:
             raise error
-
-
-

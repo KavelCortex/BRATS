@@ -2,36 +2,40 @@ import numpy as np
 import keras
 import random
 import unet.utils.patches as patches
+import unet.utils.augment as augments
 import cv2
 
 
-def get_generator(img_data,idx_list,batch_size=2):
-    generator = batch_generator(img_data=img_data,idx_list=idx_list,batch_size=batch_size)
-    step_per_epoch=get_num_of_steps(n_samples=len(idx_list),batch_size=batch_size)
-    return generator,step_per_epoch
+def get_generator(img_data, idx_list, batch_size=2):
+    generator = batch_generator(
+        img_data=img_data, idx_list=idx_list, batch_size=batch_size)
+    step_per_epoch = get_num_of_steps(
+        n_samples=len(idx_list), batch_size=batch_size)
+    return generator, step_per_epoch
 
-def batch_generator(img_data, idx_list,batch_size=2):
+
+def batch_generator(img_data, idx_list, batch_size=2):
     '''
     Standard batch generator with yield
     '''
     while True:
-        idx_epoch=idx_list.copy()
+        idx_epoch = idx_list.copy()
         random.shuffle(idx_epoch)
         X_batch = []
         y_batch = []
-        while len(idx_epoch)>0:
-            idx=idx_epoch.pop()
-            X,y=get_data_by_ID(img_data=img_data,idx=idx)
-            if np.any(y!=0):
+        while len(idx_epoch) > 0:
+            idx = idx_epoch.pop()
+            X, y = get_data_by_ID(img_data=img_data, idx=idx)
+            if np.any(y != 0):
                 X_batch.append(X)
                 y_batch.append(y)
-            if len(X_batch)==batch_size or (len(idx_epoch)==0 and len(X_batch)>0):
-                X_batch=np.asarray(X_batch)
-                y_batch=np.asarray(y_batch)
-                y_batch=get_multi_class_labels(y_batch)
-                yield X_batch,y_batch
-                X_batch=[]
-                y_batch=[]
+            if len(X_batch) == batch_size or (len(idx_epoch) == 0 and len(X_batch) > 0):
+                X_batch = np.asarray(X_batch)
+                y_batch = np.asarray(y_batch)
+                y_batch = get_multi_class_labels(y_batch)
+                yield X_batch, y_batch
+                X_batch = []
+                y_batch = []
 
 
 class SequenceGenerator(keras.utils.Sequence):
@@ -114,35 +118,45 @@ class SequenceGenerator(keras.utils.Sequence):
             y = np.empty((self.batch_size, self.n_classes, *patch_dim))
         for i, idx in enumerate(list_IDs_temp):
             data, seg_mask = get_data_by_ID(self.img_data,
-                idx, patch_size=self.patch_size, patch_idxes=self.patch_idxes)
+                                            idx, patch_size=self.patch_size, patch_idxes=self.patch_idxes)
             X[i, ] = data
             y[i, ] = seg_mask
-        
-        X=np.asarray(X)
-        y=np.asarray(y)
-        y=get_multi_class_labels(y)
+
+        X = np.asarray(X)
+        y = np.asarray(y)
+        y = get_multi_class_labels(y)
         return X, y
 
 
-def get_data_by_ID(img_data,idx, patch_size=None, patch_idxes=None):
-    ID = idx if patch_size is None else int(
-        np.floor(idx / len(patch_idxes)))
+def get_data_by_ID(img_data, idx, patch_size=None, patch_idxes=None, augment=True, permute=True):
+    # if patch_size is None else int(np.floor(idx / len(patch_idxes)))
+    ID = idx
     data = img_data.root.data[ID]  # (n_channels, dim)
-    seg_mask = img_data.root.truth[ID]  # (1, dim)
+    seg_mask = img_data.root.truth[ID, 0]  # (dim)
+    if augment:
+        affine = img_data.root.affine[ID]
+        data, seg_mask = augments.augment_data(data, seg_mask, affine)
+    if permute:
+        data, seg_mask = augments.random_permutation_x_y(
+            data, seg_mask[np.newaxis])  # (n_channels, dim)
 
-    if patch_size is not None and patch_idxes is not None:
-        idx_in_patch = int(np.floor(idx % len(patch_idxes)))
-        patch_idx = patch_idxes[idx_in_patch]
-        data = patches.get_patch_from_3d_data(
-            data, [patch_size, patch_size, patch_size],
-            patch_idx)  # (n_channels, patch_dim)
-        seg_mask = patches.get_patch_from_3d_data(
-            seg_mask, [patch_size, patch_size, patch_size],
-            patch_idx)  # (1, patch_dim)
+    # TODO: finish patched version
+    # if augment:
+    #   affine=img_data.root.affine[index[0]]
+    # if patch_size is not None and patch_idxes is not None:
+    #     idx_in_patch = int(np.floor(idx % len(patch_idxes)))
+    #     patch_idx = patch_idxes[idx_in_patch]
+    #     data = patches.get_patch_from_3d_data(
+    #         data, [patch_size, patch_size, patch_size],
+    #         patch_idx)  # (n_channels, patch_dim)
+    #     seg_mask = patches.get_patch_from_3d_data(
+    #         seg_mask, [patch_size, patch_size, patch_size],
+    #         patch_idx)  # (1, patch_dim)
 
     return data, seg_mask
 
-def get_multi_class_labels(data, n_labels=3, labels=[1,2,4]):
+
+def get_multi_class_labels(data, n_labels=3, labels=[1, 2, 4]):
     """
     Translates a label map into a set of binary labels.
     :param data: numpy array containing the label map with shape: (n_samples, 1, ...).
@@ -159,10 +173,11 @@ def get_multi_class_labels(data, n_labels=3, labels=[1,2,4]):
             y[:, label_index][data[:, 0] == (label_index + 1)] = 1
     return y
 
-def get_num_of_steps(n_samples,batch_size):
-    if n_samples<=batch_size:
+
+def get_num_of_steps(n_samples, batch_size):
+    if n_samples <= batch_size:
         return n_samples
-    elif np.remainder(n_samples,batch_size)==0:
+    elif np.remainder(n_samples, batch_size) == 0:
         return n_samples/batch_size
     else:
         return n_samples//batch_size+1
