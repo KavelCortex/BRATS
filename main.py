@@ -15,12 +15,12 @@ elif config['env'] == 'osx':
 elif config['env'] == 'cheaha':
     config['data_dir'] = '/data/scratch/jwang96'
 config['brats_file'] = 'brats_data.h5'
-config['model_file'] = 'model.hdf5'
+config['model_file'] = 'model.h5'
 config['image_shape'] = (144, 144, 144)
 config['patch_shape'] = (64, 64, 64)
 config['train_percentage'] = 0.7
 config['batch_size'] = 2
-config['epoch'] = 100
+config['epoch'] = 200
 
 
 img_data = tables.open_file(os.path.join(
@@ -44,14 +44,14 @@ if os.path.exists(config['model_file']):
 else:
     model = unet_model_3d(input_shape=img_data.root.data.shape[-4:])
 
-model.load_weights('data/weights_03_-0.09958.hdf5')
-model.save('model_64.h5')
 # model.summary()
 
-# # Train
-# cb_1 = keras.callbacks.EarlyStopping(
-#     monitor='val_loss', min_delta=0, patience=2, verbose=0, mode='auto')
-# cb_2 = keras.callbacks.ModelCheckpoint(filepath=os.path.join(
-#     config['data_dir'], 'weights_{epoch:02d}_{val_loss:.5f}.hdf5'), monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=False, mode='auto', period=1)
-# results = model.fit_generator(generator=training_generator, steps_per_epoch=training_steps, validation_data=validation_generator,
-#                               validation_steps=validation_steps, epochs=config['epoch'], callbacks=[cb_1, cb_2])
+# Train
+cb_1 = keras.callbacks.EarlyStopping(
+    monitor='val_loss', min_delta=0, patience=2, verbose=0, mode='auto')
+cb_2 = keras.callbacks.ModelCheckpoint(filepath=os.path.join(
+    config['data_dir'], 'weights_{epoch:02d}_{val_loss:.5f}.hdf5'), monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=False, mode='auto', period=1)
+results = model.fit_generator(generator=training_generator, steps_per_epoch=training_steps, validation_data=validation_generator,
+                              validation_steps=validation_steps, epochs=config['epoch'], callbacks=[cb_1, cb_2])
+model.save(os.path.join(
+    config['data_dir'], config['model_file']))
