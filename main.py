@@ -13,7 +13,7 @@ if config['env'] == 'win':
 elif config['env'] == 'osx':
     config['data_dir'] = 'data'
 elif config['env'] == 'cheaha':
-    config['data_dir'] = '$USER_SCRATCH'
+    config['data_dir'] = '/data/scratch/jwang96'
 config['brats_file'] = 'brats_data.h5'
 config['model_file'] = 'model.hdf5'
 config['image_shape'] = (144, 144, 144)
