@@ -44,7 +44,7 @@ def get_num_of_patches(img_data, idx_list, patch_shape):
         if np.any(y != 0):
             notnull_count += 1
             print('Preparing Patches: ID=%d Patch=%d/%d'%(idx[0],notnull_count,total_count),end='\r')
-    print('\n Patches extracted: %d/%d'%(notnull_count,total_count))
+    print('\n Patches extracted: %d/%d\n'%(notnull_count,total_count))
     return notnull_count
 
 
