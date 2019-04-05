@@ -4,10 +4,10 @@ from unet.model import unet_model_3d, load_old_model
 from unet import generator
 import matplotlib.pyplot as plt
 import numpy as np
-from tensorflow import keras
+import keras
 
 config = {}
-config['env'] = 'win'  # win/osx/cheaha
+config['env'] = 'cheaha'  # win/osx/cheaha
 if config['env'] == 'win':
     config['data_dir'] = "C:\\Users\\kavel\\workspace\\3DUnetCNN"
 elif config['env'] == 'osx':
@@ -44,12 +44,14 @@ if os.path.exists(config['model_file']):
 else:
     model = unet_model_3d(input_shape=img_data.root.data.shape[-4:])
 
+model.load_weights('data/weights_03_-0.09958.hdf5')
+model.save('model_64.h5')
 # model.summary()
 
-# Train
-cb_1 = keras.callbacks.EarlyStopping(
-    monitor='val_loss', min_delta=0, patience=2, verbose=0, mode='auto')
-cb_2 = keras.callbacks.ModelCheckpoint(filepath=os.path.join(
-    config['data_dir'], 'weights_{epoch:02d}_{val_loss:.5f}.hdf5'), monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=False, mode='auto', period=1)
-results = model.fit_generator(generator=training_generator, steps_per_epoch=training_steps, validation_data=validation_generator,
-                              validation_steps=validation_steps, epochs=config['epoch'], callbacks=[cb_1, cb_2])
+# # Train
+# cb_1 = keras.callbacks.EarlyStopping(
+#     monitor='val_loss', min_delta=0, patience=2, verbose=0, mode='auto')
+# cb_2 = keras.callbacks.ModelCheckpoint(filepath=os.path.join(
+#     config['data_dir'], 'weights_{epoch:02d}_{val_loss:.5f}.hdf5'), monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=False, mode='auto', period=1)
+# results = model.fit_generator(generator=training_generator, steps_per_epoch=training_steps, validation_data=validation_generator,
+#                               validation_steps=validation_steps, epochs=config['epoch'], callbacks=[cb_1, cb_2])

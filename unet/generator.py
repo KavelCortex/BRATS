@@ -1,5 +1,5 @@
 import numpy as np
-from tensorflow import keras
+import keras
 import random
 import unet.utils.patches as patches
 import unet.utils.augment as augments
