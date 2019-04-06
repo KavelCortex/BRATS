@@ -5,17 +5,20 @@ import unet.utils.patches as patches
 import unet.utils.augment as augments
 import cv2
 import itertools
+from main import config
+import os
+import pickle
 
 
-def get_generator(img_data, idx_list, batch_size=2, patch_shape=None):
+def get_generator(img_data, idx_list, batch_size=2, patch_shape=None, key_file=None):
     generator = batch_generator(
-        img_data=img_data, idx_list=idx_list, batch_size=batch_size, patch_shape=None)
+        img_data=img_data, idx_list=idx_list, batch_size=batch_size, patch_shape=patch_shape, key_file=key_file)
     n_samples = len(idx_list)
     if patch_shape:
         patch_idxes = create_patch_idx_list(
             idx_list=idx_list, img_shape=img_data.root.data.shape[-3:], patch_shape=patch_shape)
-        n_samples = get_num_of_patches(
-            img_data=img_data, idx_list=patch_idxes, patch_shape=patch_shape)
+        n_samples = len(get_not_null_patches(
+            img_data=img_data, idx_list=patch_idxes, patch_shape=patch_shape, file_load=key_file))
     step_per_epoch = get_num_of_steps(
         n_samples=n_samples, batch_size=batch_size)
     return generator, step_per_epoch
@@ -31,42 +34,58 @@ def create_patch_idx_list(idx_list, img_shape, patch_shape):
     return itertools.product(idx_list, patch_idxes)
 
 
-def get_num_of_patches(img_data, idx_list, patch_shape):
+def get_not_null_patches(img_data, idx_list, patch_shape, file_load=None):
     '''
-    return the actual number of fed patches by testing if its not empty.
+    return the actual patches by testing if its not empty.
     '''
-    total_count=0
-    notnull_count = 0
-    for idx in idx_list:
-        total_count+=1
-        X, y = get_data_by_ID(img_data=img_data, idx=idx,
-                              patch_shape=patch_shape)
-        if np.any(y != 0):
-            notnull_count += 1
-            print('Preparing Patches: ID=%d Patch=%d/%d'%(idx[0],notnull_count,total_count),end='\r')
-    print('\n Patches extracted: %d/%d\n'%(notnull_count,total_count))
-    return notnull_count
+    idx_not_null = []
+    if file_load is not None and os.path.exists(os.path.join(os.path.join(config['data_dir'], file_load))):
+        print("Cache found, loading indices...")
+        idx_not_null = pickle.load(os.path.join(config['data_dir'], file_load))
+    else:
+        total_count = 0
+        notnull_count = 0
+        for idx in idx_list:
+            total_count += 1
+            X, y = get_data_by_ID(img_data=img_data, idx=idx,
+                                  patch_shape=patch_shape)
+            if np.any(y != 0):
+                notnull_count += 1
+                idx_not_null.append(idx)
+                print('Preparing Patches: ID=%d Patch=%d/%d' %
+                      (idx[0], notnull_count, total_count), end='\r')
+        print('\n Patches extracted: %d/%d\n' % (notnull_count, total_count))
+        if file_load is not None:
+            pickle.dump(idx_not_null, os.path.join(
+                config['data_dir'], file_load))
+            print('Patches stored to: ',os.path.join(
+                config['data_dir'], file_load))
+    return idx_not_null
 
 
-def batch_generator(img_data, idx_list, batch_size=2, patch_shape=None, augment=True, permute=True):
+def batch_generator(img_data, idx_list, batch_size=2, patch_shape=None, augment=True, permute=True, key_file=None):
     '''
     Standard batch generator with yield
     '''
+    if patch_shape:
+        idx_list = get_not_null_patches(
+            img_data=img_data, idx_list=idx_list, patch_shape=patch_shape, file_load=key_file)
 
     while True:
         idx_epoch = idx_list.copy()
         random.shuffle(idx_epoch)
 
-        if patch_shape:
-            idx_epoch = create_patch_idx_list(
-                idx_list=idx_epoch, img_shape=img_data.root.data.shape[-3:], patch_shape=patch_shape)
+        # if patch_shape:
+        #     idx_epoch = create_patch_idx_list(
+        #         idx_list=idx_epoch, img_shape=img_data.root.data.shape[-3:], patch_shape=patch_shape)
 
         X_batch = []
         y_batch = []
         while len(idx_epoch) > 0:
             idx = idx_epoch.pop()
 
-            X, y = get_data_by_ID(img_data=img_data, idx=idx)
+            X, y = get_data_by_ID(
+                img_data=img_data, idx=idx, patch_shape=patch_shape)
 
             if augment:
                 if patch_shape is None:
