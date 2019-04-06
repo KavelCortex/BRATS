@@ -39,9 +39,13 @@ def get_not_null_patches(img_data, idx_list, patch_shape, file_load=None):
     return the actual patches by testing if its not empty.
     '''
     idx_not_null = []
-    if file_load is not None and os.path.exists(os.path.join(os.path.join(config['data_dir'], file_load))):
-        print("Cache found, loading indices...")
-        idx_not_null = pickle.load(os.path.join(config['data_dir'], file_load))
+    if file_load:
+        file_load = os.path.join(config['data_dir'], file_load)
+
+    if file_load and os.path.exists(file_load):
+        with open(file_load, 'rb') as f:
+            print("Cache found, loading indices...")
+            idx_not_null = pickle.load(f)
     else:
         total_count = 0
         notnull_count = 0
@@ -55,11 +59,10 @@ def get_not_null_patches(img_data, idx_list, patch_shape, file_load=None):
                 print('Preparing Patches: ID=%d Patch=%d/%d' %
                       (idx[0], notnull_count, total_count), end='\r')
         print('\n Patches extracted: %d/%d\n' % (notnull_count, total_count))
-        if file_load is not None:
-            pickle.dump(idx_not_null, os.path.join(
-                config['data_dir'], file_load))
-            print('Patches stored to: ',os.path.join(
-                config['data_dir'], file_load))
+        if file_load:
+            with open(file_load, 'wb') as f:
+                pickle.dump(idx_not_null, f)
+                print('Patches stored to: ', str(file_load))
     return idx_not_null
 
 

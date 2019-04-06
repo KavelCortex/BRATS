@@ -20,6 +20,11 @@ config['train_key_file']='train_key.pkl'
 config['validation_key_file']='validation_key.pkl'
 config['image_shape'] = (144, 144, 144)
 config['patch_shape'] = (64, 64, 64)
+config['nb_channels']=4
+if "patch_shape" in config and config["patch_shape"] is not None:
+    config["input_shape"] = tuple([config["nb_channels"]] + list(config["patch_shape"]))
+else:
+    config["input_shape"] = tuple([config["nb_channels"]] + list(config["image_shape"]))
 config['train_percentage'] = 0.7
 config['batch_size'] = 2
 config['epoch'] = 200
@@ -44,7 +49,7 @@ def main():
     if os.path.exists(config['model_file']):
         model = load_old_model(config['model_file'])
     else:
-        model = unet_model_3d(input_shape=img_data.root.data.shape[-4:])
+        model = unet_model_3d(input_shape=config["input_shape"])
 
     # model.summary()
 
