@@ -1,9 +1,12 @@
 import numpy as np
+import keras
 from keras import backend as K
 from keras.engine import Input, Model
 from keras.layers import Conv3D, MaxPooling3D, UpSampling3D, Activation, BatchNormalization, PReLU, Deconvolution3D
 from keras.optimizers import Adam
-from unet.utils.metrics import dice_coefficient_loss, get_label_dice_coefficient_function, dice_coefficient
+from keras.models import load_model
+from unet.utils.metrics import (dice_coefficient, dice_coefficient_loss, dice_coef, dice_coef_loss,
+                                weighted_dice_coefficient_loss, weighted_dice_coefficient, get_label_dice_coefficient_function)
 K.set_image_data_format("channels_first")
 
 try:
@@ -130,5 +133,22 @@ def get_up_convolution(n_filters,
         return UpSampling3D(size=pool_size)
 
 
-
-
+def load_old_model(model_file):
+    print("Loading pre-trained model")
+    custom_objects = {'dice_coefficient_loss': dice_coefficient_loss, 'dice_coefficient': dice_coefficient,
+                      'dice_coef': dice_coef, 'dice_coef_loss': dice_coef_loss,
+                      'weighted_dice_coefficient': weighted_dice_coefficient,
+                      'weighted_dice_coefficient_loss': weighted_dice_coefficient_loss}
+    try:
+        from keras_contrib.layers import InstanceNormalization
+        custom_objects["InstanceNormalization"] = InstanceNormalization
+    except ImportError:
+        pass
+    try:
+        return load_model(model_file, custom_objects=custom_objects)
+    except ValueError as error:
+        if 'InstanceNormalization' in str(error):
+            raise ValueError(str(error) + "\n\nPlease install keras-contrib to use InstanceNormalization:\n"
+                                          "'pip install git+https://www.github.com/keras-team/keras-contrib.git'")
+        else:
+            raise error
