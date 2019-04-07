@@ -69,7 +69,7 @@ def main():
     cb_2 = keras.callbacks.ModelCheckpoint(filepath=os.path.join(
         config['data_dir'], 'weights_{epoch:02d}_{val_loss:.5f}.hdf5'), monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=False, mode='auto', period=1)
     results = model.fit_generator(generator=training_generator, steps_per_epoch=training_steps, validation_data=validation_generator,
-                                  validation_steps=validation_steps, epochs=config['epoch'], callbacks=[cb_1, cb_2], worker=config['multi-worker'])
+                                  validation_steps=validation_steps, epochs=config['epoch'], callbacks=[cb_1, cb_2], workers=config['multi-worker'])
     model.save(os.path.join(
         config['data_dir'], config['model_file']))
 
