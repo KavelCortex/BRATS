@@ -55,7 +55,7 @@ def main():
         print('Loading last checkpoint: ', str(checkpoint_path))
         model = load_old_model(checkpoint_path)
     else:
-        model = unet_model_3d(input_shape=config["input_shape"])
+        model = unet_model_3d(input_shape=config["input_shape"],deconvolution=False)
 
     # model.summary()
 
@@ -65,7 +65,7 @@ def main():
     cb_2 = keras.callbacks.ModelCheckpoint(filepath=os.path.join(
         config['data_dir'], 'weights_{val_loss:.5f}.hdf5'), monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=False, mode='auto', period=1)
     results = model.fit_generator(generator=training_generator, steps_per_epoch=training_steps, validation_data=validation_generator,
-                                  validation_steps=validation_steps, epochs=config['epoch'], callbacks=[cb_1, cb_2], workers=config['multi-worker'])
+                                  validation_steps=validation_steps, epochs=config['epoch'], callbacks=[cb_2], workers=config['multi-worker'])
 
 if __name__ == "__main__":
     main()
