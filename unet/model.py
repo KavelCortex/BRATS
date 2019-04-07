@@ -40,7 +40,7 @@ def unet_model_3d(input_shape,
             batch_normalization=batch_normalization)
         layer2 = create_convolution_block(
             input_layer=layer1,
-            n_filters=n_base_filters * (2**layer_depth),
+            n_filters=n_base_filters * (2**layer_depth)*2,
             batch_normalization=batch_normalization)
 
         # when down leveling, add a Max Pooling layer to shrink the size (as shown in red arrows)
