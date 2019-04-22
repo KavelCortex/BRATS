@@ -19,7 +19,7 @@ config['model_file'] = 'model.h5'
 config['train_key_file'] = 'train_key.pkl'
 config['validation_key_file'] = 'validation_key.pkl'
 config['image_shape'] = (144, 144, 144)
-config['patch_shape'] = None
+config['patch_shape'] = (64,64,64)
 config['nb_channels'] = 4
 if "patch_shape" in config and config["patch_shape"] is not None:
     config["input_shape"] = tuple(
@@ -32,7 +32,7 @@ config['batch_size'] = 2
 config['epoch'] = 200
 config['multi-worker'] = 0
 
-def main():
+def main(train_switch=True):
     img_data = tables.open_file(os.path.join(
         config['data_dir'], config['brats_file']), 'r')
     data_num = img_data.root.data.shape[0]
@@ -44,9 +44,9 @@ def main():
     print("Data shape: ", img_data.root.data.shape)
     print("Truth shape: ", img_data.root.truth.shape)
     training_generator, training_steps = generator.get_generator(
-        img_data=img_data, idx_list=partition['train'], batch_size=config['batch_size'])
+        img_data=img_data, idx_list=partition['train'], batch_size=config['batch_size'],patch_shape=config['patch_shape'], key_file=config['train_key_file'])
     validation_generator, validation_steps = generator.get_generator(
-        img_data=img_data, idx_list=partition['test'], batch_size=config['batch_size'])
+        img_data=img_data, idx_list=partition['test'], batch_size=config['batch_size'],patch_shape=config['patch_shape'], key_file=config['train_key_file'])
 
     model = None
     # Load Checkpoint
@@ -57,15 +57,17 @@ def main():
     else:
         model = unet_model_3d(input_shape=config["input_shape"],deconvolution=False)
 
-    # model.summary()
-
-    # Train
-    cb_1 = keras.callbacks.EarlyStopping(
-        monitor='val_loss', min_delta=0, patience=2, verbose=1, mode='auto')
-    cb_2 = keras.callbacks.ModelCheckpoint(filepath=os.path.join(
-        config['data_dir'], 'weights_{val_loss:.5f}.hdf5'), monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=False, mode='auto', period=1)
-    results = model.fit_generator(generator=training_generator, steps_per_epoch=training_steps, validation_data=validation_generator,
-                                  validation_steps=validation_steps, epochs=config['epoch'], callbacks=[cb_2], workers=config['multi-worker'])
+    
+    if train_switch:
+        # Train
+        cb_1 = keras.callbacks.EarlyStopping(
+            monitor='val_loss', min_delta=0, patience=2, verbose=1, mode='auto')
+        cb_2 = keras.callbacks.ModelCheckpoint(filepath=os.path.join(
+            config['data_dir'], 'weights_{val_loss:.5f}.hdf5'), monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=False, mode='auto', period=1)
+        results = model.fit_generator(generator=training_generator, steps_per_epoch=training_steps, validation_data=validation_generator,
+                                    validation_steps=validation_steps, epochs=config['epoch'], callbacks=[cb_2], workers=config['multi-worker'])
+    else:
+        model.summary()
 
 if __name__ == "__main__":
-    main()
+    main(train_switch=True)

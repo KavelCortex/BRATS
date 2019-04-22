@@ -25,7 +25,7 @@ def unet_model_3d(input_shape,
                   n_base_filters=32,
                   include_label_wise_coefficients=False,
                   metrics=dice_coefficient,
-                  batch_normalization=False,
+                  batch_normalization=True,
                   activation_name='sigmoid'):
 
     inputs = Input(input_shape)
@@ -58,10 +58,9 @@ def unet_model_3d(input_shape,
     ## NEW: Segmentation Layer
     segmentation_layers = list()
     for layer_depth in range(depth - 2, -1, -1):  # depth-1 -> 0
-        up_convolution = get_up_convolution(
-            pool_size=pool_size,
-            deconvolution=deconvolution,
-            n_filters=current_layer._keras_shape[1])(current_layer)
+        up_convolution = create_up_sampling_module(
+            input_layer=current_layer,
+            n_filters=current_layer._keras_shape[1])
         concat = concatenate([up_convolution, levels[layer_depth][1]], axis=1)
         current_layer = create_convolution_block(
             n_filters=levels[layer_depth][1]._keras_shape[1],
@@ -70,7 +69,8 @@ def unet_model_3d(input_shape,
         current_layer = create_convolution_block(
             n_filters=levels[layer_depth][1]._keras_shape[1],
             input_layer=current_layer,
-            batch_normalization=batch_normalization)
+            batch_normalization=batch_normalization,
+            kernel=(1,1,1))
         if layer_depth < n_segmentation_levels:
             segmentation_layers.insert(0, Conv3D(n_labels, (1, 1, 1))(current_layer))
 
@@ -136,6 +136,10 @@ def create_convolution_block(input_layer,
     else:
         return activation()(layer)
 
+def create_up_sampling_module(input_layer, n_filters, size=(2, 2, 2)):
+    up_sample = UpSampling3D(size=size)(input_layer)
+    convolution = create_convolution_block(up_sample, n_filters)
+    return convolution
 
 def get_up_convolution(n_filters,
                        pool_size,
