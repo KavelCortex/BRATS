@@ -2,7 +2,7 @@ import numpy as np
 import keras
 from keras import backend as K
 from keras.engine import Input, Model
-from keras.layers import Conv3D, MaxPooling3D, UpSampling3D, Activation, BatchNormalization, PReLU, Deconvolution3D
+from keras.layers import Conv3D, MaxPooling3D, UpSampling3D, Activation, BatchNormalization, PReLU, Deconvolution3D, Add
 from keras.optimizers import Adam
 from keras.models import load_model
 from unet.utils.metrics import (dice_coefficient, dice_coefficient_loss, dice_coef, dice_coef_loss,
@@ -17,9 +17,10 @@ except ImportError:
 
 def unet_model_3d(input_shape,
                   pool_size=(2, 2, 2),
-                  n_labels=3,
+                  n_labels=4,
                   initial_learning_rate=0.00001,
                   deconvolution=True,
+                  n_segmentation_levels=3,
                   depth=4,
                   n_base_filters=32,
                   include_label_wise_coefficients=False,
@@ -54,6 +55,8 @@ def unet_model_3d(input_shape,
             levels.append([layer1, layer2])
 
     #### 3. Up leveling. same configuration as step 1, but goes up. ####
+    ## NEW: Segmentation Layer
+    segmentation_layers = list()
     for layer_depth in range(depth - 2, -1, -1):  # depth-1 -> 0
         up_convolution = get_up_convolution(
             pool_size=pool_size,
@@ -68,11 +71,24 @@ def unet_model_3d(input_shape,
             n_filters=levels[layer_depth][1]._keras_shape[1],
             input_layer=current_layer,
             batch_normalization=batch_normalization)
+        if layer_depth < n_segmentation_levels:
+            segmentation_layers.insert(0, Conv3D(n_labels, (1, 1, 1))(current_layer))
 
     #### 4. final layers ####
-    final_convolution = Conv3D(n_labels, (1, 1, 1))(current_layer)
-    act = Activation(activation_name)(final_convolution)
-    model = Model(inputs=inputs, outputs=act)
+    # final_convolution = Conv3D(n_labels, (1, 1, 1))(current_layer)
+    output_layer = None
+    for level_number in reversed(range(n_segmentation_levels)):
+        segmentation_layer = segmentation_layers[level_number]
+        if output_layer is None:
+            output_layer = segmentation_layer
+        else:
+            output_layer = Add()([output_layer, segmentation_layer])
+
+        if level_number > 0:
+            output_layer = UpSampling3D(size=(2, 2, 2))(output_layer)
+
+    activation_block = Activation(activation_name)(output_layer)
+    model = Model(inputs=inputs, outputs=activation_block)
     ####################################################################################
 
     # metrics configuration
