@@ -46,7 +46,7 @@ def main(train_switch=True):
     training_generator, training_steps = generator.get_generator(
         img_data=img_data, idx_list=partition['train'], batch_size=config['batch_size'],patch_shape=config['patch_shape'], key_file=config['train_key_file'])
     validation_generator, validation_steps = generator.get_generator(
-        img_data=img_data, idx_list=partition['test'], batch_size=config['batch_size'],patch_shape=config['patch_shape'], key_file=config['train_key_file'])
+        img_data=img_data, idx_list=partition['test'], batch_size=config['batch_size'],patch_shape=config['patch_shape'], key_file=config['validation_key_file'])
 
     model = None
     # Load Checkpoint
