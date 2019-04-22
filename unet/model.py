@@ -17,7 +17,7 @@ except ImportError:
 
 def unet_model_3d(input_shape,
                   pool_size=(2, 2, 2),
-                  n_labels=4,
+                  n_labels=3,
                   initial_learning_rate=0.00001,
                   deconvolution=True,
                   n_segmentation_levels=3,
