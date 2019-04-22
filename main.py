@@ -19,7 +19,7 @@ config['model_file'] = 'model.h5'
 config['train_key_file'] = 'train_key.pkl'
 config['validation_key_file'] = 'validation_key.pkl'
 config['image_shape'] = (144, 144, 144)
-config['patch_shape'] = (64, 64, 64)
+config['patch_shape'] = None
 config['nb_channels'] = 4
 if "patch_shape" in config and config["patch_shape"] is not None:
     config["input_shape"] = tuple(
@@ -44,9 +44,9 @@ def main():
     print("Data shape: ", img_data.root.data.shape)
     print("Truth shape: ", img_data.root.truth.shape)
     training_generator, training_steps = generator.get_generator(
-        img_data=img_data, idx_list=partition['train'], batch_size=config['batch_size'], patch_shape=config['patch_shape'], key_file=config['train_key_file'])
+        img_data=img_data, idx_list=partition['train'], batch_size=config['batch_size'])
     validation_generator, validation_steps = generator.get_generator(
-        img_data=img_data, idx_list=partition['test'], batch_size=config['batch_size'], patch_shape=config['patch_shape'], key_file=config['validation_key_file'])
+        img_data=img_data, idx_list=partition['test'], batch_size=config['batch_size'])
 
     model = None
     # Load Checkpoint
