@@ -72,4 +72,4 @@ def main(train_switch=True):
         model.summary()
 
 if __name__ == "__main__":
-    main(train_switch=False)
+    main(train_switch=True)
