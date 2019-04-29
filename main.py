@@ -19,7 +19,7 @@ config['model_file'] = 'model.h5'
 config['train_key_file'] = 'train_key.pkl'
 config['validation_key_file'] = 'validation_key.pkl'
 config['image_shape'] = (144, 144, 144)
-config['patch_shape'] = (64,64,64)
+config['patch_shape'] = None
 config['nb_channels'] = 4
 if "patch_shape" in config and config["patch_shape"] is not None:
     config["input_shape"] = tuple(
@@ -67,7 +67,9 @@ def main(train_switch=True):
         results = model.fit_generator(generator=training_generator, steps_per_epoch=training_steps, validation_data=validation_generator,
                                     validation_steps=validation_steps, epochs=config['epoch'], callbacks=[cb_2], workers=config['multi-worker'])
     else:
+        from keras.utils.vis_utils import plot_model
+        plot_model(model, to_file='model_plot.png', show_shapes=True, show_layer_names=True)
         model.summary()
 
 if __name__ == "__main__":
-    main(train_switch=True)
+    main(train_switch=False)

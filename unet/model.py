@@ -2,7 +2,7 @@ import numpy as np
 import keras
 from keras import backend as K
 from keras.engine import Input, Model
-from keras.layers import Conv3D, MaxPooling3D, UpSampling3D, Activation, BatchNormalization, PReLU, Deconvolution3D, Add
+from keras.layers import Conv3D, MaxPooling3D, UpSampling3D, Activation, BatchNormalization, PReLU, Deconvolution3D, Add, SpatialDropout3D, LeakyReLU
 from keras.optimizers import Adam
 from keras.models import load_model
 from unet.utils.metrics import (dice_coefficient, dice_coefficient_loss, dice_coef, dice_coef_loss,
@@ -21,8 +21,9 @@ def unet_model_3d(input_shape,
                   initial_learning_rate=0.00001,
                   deconvolution=True,
                   n_segmentation_levels=3,
-                  depth=4,
-                  n_base_filters=32,
+                  depth=5,
+                  n_base_filters=16,
+                  dropout_rate=0.3,
                   include_label_wise_coefficients=False,
                   metrics=dice_coefficient,
                   batch_normalization=True,
@@ -30,49 +31,49 @@ def unet_model_3d(input_shape,
 
     inputs = Input(input_shape)
     current_layer = inputs
-    levels = list()
+    level_output = list()
+    level_filters = list()
 
     ################################### Network ########################################
-    #### 1. Down leveling. Default with 2 conv layer and goes down 4 times (depth). ####
+    #### 1. Down leveling adding residual layers ####
     for layer_depth in range(depth):
-        layer1 = create_convolution_block(
-            input_layer=current_layer,
-            n_filters=n_base_filters * (2**layer_depth),
-            batch_normalization=batch_normalization)
-        layer2 = create_convolution_block(
-            input_layer=layer1,
-            n_filters=n_base_filters * (2**layer_depth)*2,
-            batch_normalization=batch_normalization)
+        n_level_filters = (2**layer_depth)*n_base_filters
+        level_filters.append(n_level_filters)
 
-        # when down leveling, add a Max Pooling layer to shrink the size (as shown in red arrows)
-        if layer_depth < depth - 1:  # 0 -> depth-1
-            current_layer = MaxPooling3D(pool_size=pool_size)(layer2)
-            levels.append([layer1, layer2, current_layer])
+        if current_layer is inputs:  # input as the first level
+            in_conv = create_convolution_block(
+                input_layer=current_layer, n_filters=n_level_filters)
+        else:  # down leveling by 2 for the rest of the level
+            in_conv = create_convolution_block(
+                input_layer=current_layer, n_filters=n_level_filters, strides=(2, 2, 2))
 
-    #### 2. Reaches bottom layer. Continue without max pooling ####
-        else:  # depth
-            current_layer = layer2
-            levels.append([layer1, layer2])
+        residual_layer = create_residual_block(
+            in_conv, n_level_filters, dropout_rate=dropout_rate)
 
-    #### 3. Up leveling. same configuration as step 1, but goes up. ####
-    ## NEW: Segmentation Layer
+        summation_layer = Add()([in_conv, residual_layer])
+        level_output.append(summation_layer)
+        current_layer = summation_layer
+
+    #### 2. Up leveling, adding the summation from down leveling ####
     segmentation_layers = list()
     for layer_depth in range(depth - 2, -1, -1):  # depth-1 -> 0
         up_convolution = create_up_sampling_module(
             input_layer=current_layer,
-            n_filters=current_layer._keras_shape[1])
-        concat = concatenate([up_convolution, levels[layer_depth][1]], axis=1)
+            n_filters=level_filters[layer_depth])
+        concat = concatenate(
+            [up_convolution, level_output[layer_depth]], axis=1)
         current_layer = create_convolution_block(
-            n_filters=levels[layer_depth][1]._keras_shape[1],
+            n_filters=level_filters[layer_depth],
             input_layer=concat,
             batch_normalization=batch_normalization)
         current_layer = create_convolution_block(
-            n_filters=levels[layer_depth][1]._keras_shape[1],
+            n_filters=level_filters[layer_depth],
             input_layer=current_layer,
             batch_normalization=batch_normalization,
-            kernel=(1,1,1))
+            kernel=(1, 1, 1))
         if layer_depth < n_segmentation_levels:
-            segmentation_layers.insert(0, Conv3D(n_labels, (1, 1, 1))(current_layer))
+            segmentation_layers.insert(
+                0, Conv3D(n_labels, (1, 1, 1))(current_layer))
 
     #### 4. final layers ####
     # final_convolution = Conv3D(n_labels, (1, 1, 1))(current_layer)
@@ -114,9 +115,9 @@ def unet_model_3d(input_shape,
 
 def create_convolution_block(input_layer,
                              n_filters,
-                             batch_normalization=False,
+                             batch_normalization=True,
                              kernel=(3, 3, 3),
-                             activation=None,
+                             activation=LeakyReLU,
                              padding='same',
                              strides=(1, 1, 1),
                              instance_normalization=False):
@@ -136,21 +137,21 @@ def create_convolution_block(input_layer,
     else:
         return activation()(layer)
 
+
 def create_up_sampling_module(input_layer, n_filters, size=(2, 2, 2)):
     up_sample = UpSampling3D(size=size)(input_layer)
     convolution = create_convolution_block(up_sample, n_filters)
     return convolution
 
-def get_up_convolution(n_filters,
-                       pool_size,
-                       kernel_size=(2, 2, 2),
-                       strides=(2, 2, 2),
-                       deconvolution=False):
-    if deconvolution:
-        return Deconvolution3D(
-            filters=n_filters, kernel_size=kernel_size, strides=strides)
-    else:
-        return UpSampling3D(size=pool_size)
+
+def create_residual_block(input_layer, n_level_filters, dropout_rate=0.3, data_format="channels_first"):
+    conv1 = create_convolution_block(
+        input_layer=input_layer, n_filters=n_level_filters)
+    dropout = SpatialDropout3D(
+        rate=dropout_rate, data_format=data_format)(conv1)
+    conv2 = create_convolution_block(
+        input_layer=dropout, n_filters=n_level_filters)
+    return conv2
 
 
 def load_old_model(model_file):
